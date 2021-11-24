@@ -1,0 +1,4 @@
+# Don't include these files in the git repository:
+
+*partifordeling*.csv
+mandater.csv
