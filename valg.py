@@ -57,8 +57,22 @@ maxValue = df[kvotient_string_list].max()
 fylke_result = df[(df["Fylkenavn"] == "Akershus")]
 # fylke_result = election_result[(election_result["Fylkenummer"] == 1)]
 # fylke_result.info()
-print(fylke_result)
+# print(fylke_result)
 # print(fylke_result.tail())
 
-# Find max kvotient
-print(fylke_result[kvotient_string_list].idxmax())        
+for n in range(19):
+    # Find max kvotient
+    max_column = fylke_result[kvotient_string_list].max().idxmax()
+    # print(f"{max_column=}")
+    max_row = fylke_result[[max_column]].idxmax().max()
+    # print(f"{max_row}")
+    # print(fylke_result.at[max_row, max_column])
+    
+    # Give the party with the largest kvotient a mandate
+    fylke_result.at[max_row, "Direct"] = fylke_result.at[max_row, "Direct"] + 1
+    # Remove that kvotient from the list
+    fylke_result.at[max_row, max_column] = 0.0
+    # fylke_result.info()
+#
+print(df["Direct"].max())
+print(fylke_result.loc[20:40,"Direct"])
