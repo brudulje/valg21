@@ -8,7 +8,10 @@ Created on Mon Nov 15 21:30:26 2021
 import pandas as pd
 
 result_file = "~/Documents/edb/valg21/2021-11-10_partifordeling_1_st_2021.csv"
+mandates_file = "~/Documents/edb/valg21/mandater.csv"
 df = pd.read_csv(result_file, sep=";")
+
+sperregrense = 0.04 
 # df.info()
 # df.head()
 
@@ -32,7 +35,7 @@ df["Partinavn"] = df["Partinavn"].astype("string")
 # election_result.info()
 # election_result.head()
 
-mandates_per_district = pd.read_csv("~/Documents/edb/valg21/mandater.csv")
+mandates_per_district = pd.read_csv(mandates_file)
 # print(mandates_per_district)
 max_mandates = mandates_per_district["Antall mandater"].max()
 # print(max_mandates)
@@ -95,3 +98,23 @@ for fylke in df["Fylkenavn"].unique():
 #         print("Jadda", row["Antall mandater"], row["Direct"])
 # print(f"{bom=}")
 df.to_csv("BeregnetStorting.csv")
+
+# Evening out mandates are only for parties sabove "sperregrense" nationaly
+
+# Calculating national results for all parties
+ndf = df.groupby("Partinavn")["Antall stemmer totalt"].sum()
+# print(ndf, type(ndf))
+# Converting to dataframe (from Series)
+ndf = ndf.to_frame()
+# print(ndf, type(ndf))
+
+# print(ndf, type(ndf))
+# Fjerner blanke
+ndf.at["Blanke", "Antall stemmer totalt"] = 0
+# print(ndf)
+ndf["Oppslutning"] = ndf["Antall stemmer totalt"] \
+    / ndf["Antall stemmer totalt"].sum()
+# print(ndf)
+# Kicking out the parties below the sperregrense threshold
+ndf = ndf.drop(ndf[ndf.Oppslutning < sperregrense].index)
+print(ndf)
