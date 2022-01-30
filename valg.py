@@ -150,56 +150,33 @@ ndf = calculate_kvotients(ndf, utjevning_kvotient_list)
 
 mandates_to_asif = total_mandates - small_party_mandates
 print(f"{mandates_to_asif=}")
-ndf["asif"] = 0
 # print(ndf)
-# too_many_mandates = 1
-# while too_many_mandates > 0:
-# Calculate kvotients
-for n in range(mandates_to_asif):
-    # Find max kvotient
-    max_column = ndf[utjevning_kvotient_string_list].max().idxmax()
-    max_row = ndf[[max_column]].idxmax().max()
-    # print(f"{max_column=}")
-    # print(f"{max_row}")
-    # print(fylke_result.at[max_row, max_column])
-    
-    # Give the party with the largest kvotient a mandate
-    ndf.at[max_row, "asif"] = ndf.at[max_row, "asif"] + 1
-    # Remove that kvotient from the list
-    ndf.at[max_row, max_column] = 0.0
-print(ndf["Direct"], ndf["asif"])
-too_many_mandates = ndf[ndf.Direct > ndf.asif]["Direct"].sum()
-print(f"{too_many_mandates=}")
-# Kicking out the parties with too many mandates
-ndf = ndf.drop(ndf[ndf.Direct > ndf.asif].index)
+too_many_mandates = 1
+while too_many_mandates > 0:
+    # Reset as-if calculation
+    ndf["asif"] = 0
+    print(f"{mandates_to_asif=}")
+    for n in range(mandates_to_asif):
+        # Find max kvotient
+        max_column = ndf[utjevning_kvotient_string_list].max().idxmax()
+        max_row = ndf[[max_column]].idxmax().max()
+        # Give the party with the largest kvotient a mandate
+        ndf.at[max_row, "asif"] = ndf.at[max_row, "asif"] + 1
+        # Remove that kvotient from the list
+        ndf.at[max_row, max_column] = 0.0
+    print(ndf["Direct"], ndf["asif"])
+    # Check if some party got too many mandates
+    too_many_mandates = ndf[ndf.Direct > ndf.asif]["Direct"].sum()
+    print(f"{too_many_mandates=}")
 
-# Adjust number of mandates to distribute
-mandates_to_asif = mandates_to_asif - too_many_mandates
-print(f"{mandates_to_asif=}")
+    # Kick out the parties with too many mandates
+    ndf = ndf.drop(ndf[ndf.Direct > ndf.asif].index)    
+    # Adjust number of mandates to distribute
+    mandates_to_asif = mandates_to_asif - too_many_mandates
 
-# TODO: Something fishy happens here. The loop runs too
-# Erase the old numbers
-ndf["asif"] = 0
-# Calculate again
-# Calculate kvotients
-for n in range(mandates_to_asif):
-    # Find max kvotient
-    max_column = ndf[utjevning_kvotient_string_list].max().idxmax()
-    max_row = ndf[[max_column]].idxmax().max()
-    # print(f"{max_column=}")
-    # print(f"{max_row}")
-    # print(fylke_result.at[max_row, max_column])
-    
-    # Give the party with the largest kvotient a mandate
-    ndf.at[max_row, "asif"] = ndf.at[max_row, "asif"] + 1
-    # Remove that kvotient from the list
-    ndf.at[max_row, max_column] = 0.0
-print(ndf["Direct"], ndf["asif"])
-too_many_mandates = ndf[ndf.Direct > ndf.asif]["Direct"].sum()
-print(f"{too_many_mandates=}")
-
-
-
+# This seems to work, but the numbers are slightly wrong.
+# Here, Høyre gets 2, and Frp gets 3,
+# but according to official numbers is shoule be 1 and 4
 
 # # Calculating the number of evening out mandates for each party
 # for n in range(19):
