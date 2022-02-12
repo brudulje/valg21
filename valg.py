@@ -7,7 +7,10 @@ Created on Mon Nov 15 21:30:26 2021
 
 import pandas as pd
 
-result_file = "~/Documents/edb/valg21/2021-11-10_partifordeling_1_st_2021.csv"
+# Result source:
+# https://valgresultat.no/eksport-av-valgresultater?type=st&year=2021
+result_file = "~/Documents/edb/valg21/2022-02-12_partifordeling_1_st_2021.csv"
+# result_file = "~/Documents/edb/valg21/2021-11-10_partifordeling_1_st_2021.csv"
 mandates_file = "~/Documents/edb/valg21/mandater.csv"
 sperregrense = 0.04
 total_mandates = 169  # Total mandates in Stortinget.
@@ -93,7 +96,9 @@ for fylke in df["Fylkenavn"].unique():
 #     elif row["Direct"] > 0:
 #         print("Jadda", row["Antall mandater"], row["Direct"], end="  ")
 # print(f"{bom=}")
-# df.to_csv("BeregnetStortingUtenUtjevning.csv")
+df.to_csv("BeregnetStortingUtenUtjevning.csv")
+# TODO: Print nice table of parties and (direct) mandates.
+
 
 # TODO Start by acalculating the teoretical number of mandates for
 # all parties if the entire nation was one single district.
@@ -109,10 +114,10 @@ ndf = df.groupby("Partinavn")["Antall stemmer totalt"].sum()
 # Converting to dataframe (from Series)
 ndf = ndf.to_frame()
 # print(ndf)  # , type(ndf))
-
+ndf.to_csv("Grunnlag_utjevning.csv")
 # # print(ndf, type(ndf))
 ## Blanke stemmer er ikke en del av grunnlaget for oppslutning.
-# # FRemoving blank votes from the total
+# # Removing blank votes from the total
 ndf.at["Blanke", "Antall stemmer totalt"] = 0
 # # print(ndf)
 ndf["Oppslutning"] = ndf["Antall stemmer totalt"] \
@@ -149,10 +154,12 @@ ndf = calculate_kvotients(ndf, utjevning_kvotient_list)
 # should be subtracted from the total
 
 mandates_to_asif = total_mandates - small_party_mandates
-print(f"{mandates_to_asif=}")
+# print(f"{mandates_to_asif=}")
 # print(ndf)
 too_many_mandates = 1
+numb = 0
 while too_many_mandates > 0:
+    numb = numb + 1
     # Reset as-if calculation
     ndf["asif"] = 0
     print(f"{mandates_to_asif=}")
@@ -164,7 +171,8 @@ while too_many_mandates > 0:
         ndf.at[max_row, "asif"] = ndf.at[max_row, "asif"] + 1
         # Remove that kvotient from the list
         ndf.at[max_row, max_column] = 0.0
-    print(ndf["Direct"], ndf["asif"])
+    # print(ndf["Direct"], ndf["asif"])
+    ndf.to_csv(f"Beregning_Utjevning_{numb}.csv")
     # Check if some party got too many mandates
     too_many_mandates = ndf[ndf.Direct > ndf.asif]["Direct"].sum()
     print(f"{too_many_mandates=}")
@@ -173,10 +181,10 @@ while too_many_mandates > 0:
     ndf = ndf.drop(ndf[ndf.Direct > ndf.asif].index)    
     # Adjust number of mandates to distribute
     mandates_to_asif = mandates_to_asif - too_many_mandates
-
+print(ndf["asif"])
 # This seems to work, but the numbers are slightly wrong.
 # Here, Høyre gets 2, and Frp gets 3,
-# but according to official numbers is shoule be 1 and 4
+# but according to official numbers these should be 1 and 4
 
 # # Calculating the number of evening out mandates for each party
 # for n in range(19):
