@@ -43,6 +43,7 @@ utjevning_kvotient_list = [st_Lagues_mod]
 for n in range(3, 2 * max_mandates, 2):
     kvotient_list.append(n)
 kvotient_string_list = [f"{int(n)}" for n in kvotient_list]
+print(kvotient_list)
 for n in range(3, 2 * total_mandates, 2):
     utjevning_kvotient_list.append(n)
 utjevning_kvotient_string_list = [f"{int(n)}" for n in utjevning_kvotient_list]
@@ -83,31 +84,36 @@ for fylke in df["Fylkenavn"].unique():
         # Give the party with the largest kvotient a mandate
         df.at[max_row, "Direct"] = df.at[max_row, "Direct"] + 1
         # Remove that kvotient from the list
-        fylke_result.at[max_row, max_column] = 0.0
+        fylke_result.at[max_row, max_column] *= -1
     # fylke_result.info()
 
 # Checking my calculations
-# bom = 0        
-# for idx, row in df.iterrows():
-#     if not (row["Antall mandater"] 
-#             - row["Antall utjevningsmandater"]) == row["Direct"]:
-#         print("Æsj", row["Antall mandater"], row["Direct"])
-#         bom += 1
-#     elif row["Direct"] > 0:
-#         print("Jadda", row["Antall mandater"], row["Direct"], end="  ")
-# print(f"{bom=}")
+bom = 0        
+for idx, row in df.iterrows():
+    if not (row["Antall mandater"] 
+            - row["Antall utjevningsmandater"]) == row["Direct"]:
+        print("Æsj", row["Antall mandater"], row["Direct"])
+        bom += 1
+    elif row["Direct"] > 0:
+        # print("Jadda", row["Antall mandater"], row["Direct"], end="  ")
+        pass
+print(f"{bom=}")
 df.to_csv("BeregnetStortingUtenUtjevning.csv")
 # TODO: Print nice table of parties and (direct) mandates.
 
-
-# TODO Start by acalculating the teoretical number of mandates for
+direct_df = df.groupby("Partinavn")["Direct"].sum()
+direct_df = direct_df.to_frame()
+# print(direct_df[direct_df.Direct < 1].index)
+direct_df = direct_df.drop(direct_df[direct_df.Direct < 1].index)
+# ndf       = ndf      .drop(ndf      [ndf      .Oppslutning < sperregrense].index)
+direct_df.to_csv("Direte_mandater.csv")
+print(direct_df)
+# TODO Start by calculating the teoretical number of mandates for
 # all parties if the entire nation was one single district.
 
 # XXX 
 
 # Evening out mandates are only for parties above "sperregrense" nationaly
-
-
 # Calculating national results for all parties
 ndf = df.groupby("Partinavn")["Antall stemmer totalt"].sum()
 # print(ndf, type(ndf))
@@ -170,7 +176,7 @@ while too_many_mandates > 0:
         # Give the party with the largest kvotient a mandate
         ndf.at[max_row, "asif"] = ndf.at[max_row, "asif"] + 1
         # Remove that kvotient from the list
-        ndf.at[max_row, max_column] = 0.0
+        ndf.at[max_row, max_column] *= -1
     # print(ndf["Direct"], ndf["asif"])
     ndf.to_csv(f"Beregning_Utjevning_{numb}.csv")
     # Check if some party got too many mandates
