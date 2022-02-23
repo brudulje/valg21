@@ -42,18 +42,18 @@ utjevning_kvotient_list = [st_Lagues_mod]
 # in order to reuse it for the national evening out mandates.
 for n in range(3, 2 * max_mandates, 2):
     kvotient_list.append(n)
-kvotient_string_list = [f"{int(n)}" for n in kvotient_list]
+kvotient_string_list = [f"{n}" for n in kvotient_list]
 print(kvotient_list)
 for n in range(3, 2 * total_mandates, 2):
     utjevning_kvotient_list.append(n)
-utjevning_kvotient_string_list = [f"{int(n)}" for n in utjevning_kvotient_list]
+utjevning_kvotient_string_list = [f"{n}" for n in utjevning_kvotient_list]
 
 
 def calculate_kvotients(df, kvotient_list):
     # Calculating kvotients for all districts and parties
     for n in kvotient_list:
         # print(n)
-        df[f"{int(n)}"] = df["Antall stemmer totalt"] / n
+        df[f"{n}"] = df["Antall stemmer totalt"] / n
     # print(df.info())
     return df
 
@@ -99,19 +99,14 @@ for idx, row in df.iterrows():
         pass
 print(f"{bom=}")
 df.to_csv("BeregnetStortingUtenUtjevning.csv")
-# TODO: Print nice table of parties and (direct) mandates.
 
+# Make and print nice list of direct mandates.
 direct_df = df.groupby("Partinavn")["Direct"].sum()
 direct_df = direct_df.to_frame()
-# print(direct_df[direct_df.Direct < 1].index)
+# Skip th eparties without mandates
 direct_df = direct_df.drop(direct_df[direct_df.Direct < 1].index)
-# ndf       = ndf      .drop(ndf      [ndf      .Oppslutning < sperregrense].index)
 direct_df.to_csv("Direte_mandater.csv")
 print(direct_df)
-# TODO Start by calculating the teoretical number of mandates for
-# all parties if the entire nation was one single district.
-
-# XXX 
 
 # Evening out mandates are only for parties above "sperregrense" nationaly
 # Calculating national results for all parties
@@ -129,11 +124,10 @@ ndf.at["Blanke", "Antall stemmer totalt"] = 0
 ndf["Oppslutning"] = ndf["Antall stemmer totalt"] \
     / ndf["Antall stemmer totalt"].sum()
 # print(ndf)
-dir_series = df.groupby("Partinavn")["Direct"].sum()
 # print(dir_series, type(dir_series))
 # ndf = pd.concat([ndf, dir_series.to_frame()])  # Nope, not quite
 # ndf.merge(dir_series, left_index=True, right_index=True)  # Nope
-ndf["Direct"] = dir_series  # There we go
+ndf["Direct"] = df.groupby("Partinavn")["Direct"].sum()  # There we go
 
 # print(dir_series)
 # print(ndf.info())
@@ -181,12 +175,14 @@ while too_many_mandates > 0:
     ndf.to_csv(f"Beregning_Utjevning_{numb}.csv")
     # Check if some party got too many mandates
     too_many_mandates = ndf[ndf.Direct > ndf.asif]["Direct"].sum()
+    print(ndf["asif"])
     print(f"{too_many_mandates=}")
-
-    # Kick out the parties with too many mandates
+        # Kick out the parties with too many mandates
+    print("Dropping ",  ndf[ndf.Direct > ndf.asif].index)
     ndf = ndf.drop(ndf[ndf.Direct > ndf.asif].index)    
     # Adjust number of mandates to distribute
     mandates_to_asif = mandates_to_asif - too_many_mandates
+print("Final numbers for utjevning:")
 print(ndf["asif"])
 # This seems to work, but the numbers are slightly wrong.
 # Here, Høyre gets 2, and Frp gets 3,
