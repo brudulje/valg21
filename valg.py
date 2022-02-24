@@ -57,7 +57,7 @@ def calculate_kvotients(df, kvotient_list):
     # print(df.info())
     return df
 
-
+print("Total votes:", df["Antall stemmer totalt"].sum())
 df = calculate_kvotients(df, kvotient_list)
 # Adding columns to store results from calculations
 df["Direct"] = 0  # Direct mandates
@@ -121,6 +121,7 @@ ndf.to_csv("Grunnlag_utjevning.csv")
 # # Removing blank votes from the total
 ndf.at["Blanke", "Antall stemmer totalt"] = 0
 # # print(ndf)
+print("Total votes to calculate oppslutning: ", ndf["Antall stemmer totalt"].sum())
 ndf["Oppslutning"] = ndf["Antall stemmer totalt"] \
     / ndf["Antall stemmer totalt"].sum()
 # print(ndf)
@@ -170,18 +171,21 @@ while too_many_mandates > 0:
         # Give the party with the largest kvotient a mandate
         ndf.at[max_row, "asif"] = ndf.at[max_row, "asif"] + 1
         # Remove that kvotient from the list
-        ndf.at[max_row, max_column] *= -1
+        ndf.at[max_row, max_column] *= -1  # This is the culprit!
     # print(ndf["Direct"], ndf["asif"])
     ndf.to_csv(f"Beregning_Utjevning_{numb}.csv")
     # Check if some party got too many mandates
     too_many_mandates = ndf[ndf.Direct > ndf.asif]["Direct"].sum()
     print(ndf["asif"])
     print(f"{too_many_mandates=}")
-        # Kick out the parties with too many mandates
+    # Kick out the parties with too many mandates
     print("Dropping ",  ndf[ndf.Direct > ndf.asif].index)
     ndf = ndf.drop(ndf[ndf.Direct > ndf.asif].index)    
     # Adjust number of mandates to distribute
     mandates_to_asif = mandates_to_asif - too_many_mandates
+    # Reset all the kvotients to positive numbers
+    # or else, the calculation will be incorrect!
+    ndf[utjevning_kvotient_string_list] = abs(ndf[utjevning_kvotient_string_list])
 print("Final numbers for utjevning:")
 print(ndf["asif"])
 # This seems to work, but the numbers are slightly wrong.
