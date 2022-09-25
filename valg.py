@@ -7,8 +7,15 @@ Created on Mon Nov 15 21:30:26 2021
 
 import pandas as pd
 
-# Result source:
+# Result, laws and regulations source:
 # https://valgresultat.no/eksport-av-valgresultater?type=st&year=2021
+# https://www.valg.no/om-valg/valggjennomforing/lover-og-regler/
+# https://www.valg.no/om-valg/valgene-i-norge/stortingsvalg/fordeling-av-utjevningsmandater/
+# https://lovdata.no/dokument/NL/lov/2002-06-28-57
+# https://lovdata.no/dokument/NL/lov/1814-05-17-nn/KAPITTEL_3#§59
+# https://snl.no/valordning_i_Noreg
+# https://snl.no/utjevningsmandat
+
 result_file = "~/Documents/edb/valg21/2022-02-12_partifordeling_1_st_2021.csv"
 mandates_file = "~/Documents/edb/valg21/mandater.csv"
 utjevning_file = "~/Documents/edb/valg21/utjevning.csv"
@@ -19,7 +26,7 @@ sperregrense = 0.04
 df = pd.read_csv(result_file, sep=";")
 # Cast to string to be able to test against
 df["Fylkenavn"] = df["Fylkenavn"].astype("string")
-df["Partikode"] = df["Partikode"].astype("string")
+# df["Partikode"] = df["Partikode"].astype("string")
 df["Partinavn"] = df["Partinavn"].astype("string")
 
 # df.info()
@@ -35,7 +42,12 @@ mandates_per_district.set_index("Fylkenavn", inplace=True)
 utjevning_per_district = pd.read_csv(utjevning_file)
 utjevning_per_district.set_index("Fylkenavn", inplace=True)
 
+# Calculate number of direct mandates per fylke
+direkte_per_district = mandates_per_district.subtract(utjevning_per_district)
+# print("Direkte mandater per fylke\n", direkte_per_district)
+
 st_Lagues_mod = 1.4
+
 kvotient_list = [st_Lagues_mod]
 for n in range(3, 2 * max_mandates, 2):
     # Will allow one single party to win all mandates,
@@ -68,13 +80,14 @@ df["Evening"] = 0  # Evening out mandates
 # print(kvotient_string_list)
 
 for fylke in df["Fylkenavn"].unique():
-    mandates = mandates_per_district.at[fylke, "Antall mandater"]
-    utjevning = utjevning_per_district.at[fylke, "Antall mandater"]
+    # mandates = mandates_per_district.at[fylke, "Antall mandater"]
+    # utjevning = utjevning_per_district.at[fylke, "Antall mandater"]
+    direct = direkte_per_district.at[fylke, "Antall mandater"]
     # print(fylke, mandates)
     fylke_result = df[(df["Fylkenavn"] == fylke)]
 
     # Saving appropriate mandates for the utjevning mandates
-    for n in range(mandates - utjevning):
+    for n in range(direct):
         # Find max kvotient
         max_column = fylke_result[kvotient_string_list].max().idxmax()
         max_row = fylke_result[[max_column]].idxmax().max()
@@ -182,10 +195,10 @@ while too_many_mandates > 0:
     ndf.to_csv(f"Beregning_Utjevning_{numb}.csv")
     # Check if some party got too many mandates
     too_many_mandates = ndf[ndf.Direct > ndf.asif]["Direct"].sum()
-    print(ndf["asif"])
-    print(f"{too_many_mandates=}")
+    # print(ndf["asif"])
+    # print(f"{too_many_mandates=}")
     # Kick out the parties with too many mandates
-    print("Dropping ", ndf[ndf.Direct > ndf.asif].index)
+    # print("Dropping ", ndf[ndf.Direct > ndf.asif].index)
     ndf = ndf.drop(ndf[ndf.Direct > ndf.asif].index)
     # Adjust number of mandates to distribute
     mandates_to_asif = mandates_to_asif - too_many_mandates
@@ -202,21 +215,24 @@ df["Fylkesfaktor"] = 0
 # for fylke in df["Fylkenavn"].unique():
 #     df.at[fylke, "Fylkesfaktor"] = df.groupby("Fylkenavn")["Antall stemmer totalt"].sum()
 plopp = df.groupby("Fylkenavn")["Antall stemmer totalt"].sum()
+print("\n\nPlopp\n", plopp, type(plopp))
 plopp = plopp.to_frame()
 # print(plopp.info())
-plopp.to_csv("Fordeling_utjevning.csv")
-# print(plopp)
+plopp.to_csv("Stemmer_per_fylke.csv")
+
+# print("\n\nPlopp\n", plopp)
 # print(mandates_per_district)
 # for fylke in plopp.index().unique():
     # print(fylke)
 #     df.at[fylke, "Fylkesfaktor"] = plopp.at[fylke, "Antall stemmer totalt"] / mandates_per_district.at[fylke, "Antall mandater"]
 # #     print(plopp["Antall stemmer totalt"])
-for fylke in df["Fylkenavn"].unique():
-    # print(fylke)
-    # print(plopp.at[fylke, "Antall stemmer totalt"])
-    # print(mandates_per_district.at[fylke, "Antall mandater"])
-    df.at[fylke, "Fylkestemmer"] = plopp.at[fylke, "Antall stemmer totalt"]
-    pass
+# for fylke in df["Fylkenavn"].unique():
+#     # print(fylke)
+#     # print(plopp.at[fylke, "Antall stemmer totalt"])
+#     # print(mandates_per_district.at[fylke, "Antall mandater"])
+#     df.at[fylke, "Fylkestemmer"] = plopp.at[fylke, "Antall stemmer totalt"]
+#     # df.at[fylke, "Fylkesfaktor"] = df.at[fylke, "Fylkestemmer"] /\
+#     #     df.at[]
+df
 df.to_csv("df.csv")
 # df.at[fylke, "Stemmer fylke"] = df.groupby("Fylkenavn")["Antall stemmer totalt"].sum()
-# df.to_csv("df.csv")
