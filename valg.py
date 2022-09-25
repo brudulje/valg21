@@ -10,20 +10,13 @@ import pandas as pd
 # Result source:
 # https://valgresultat.no/eksport-av-valgresultater?type=st&year=2021
 result_file = "~/Documents/edb/valg21/2022-02-12_partifordeling_1_st_2021.csv"
-# result_file = "~/Documents/edb/valg21/2021-11-10_partifordeling_1_st_2021.csv"
 mandates_file = "~/Documents/edb/valg21/mandater.csv"
 utjevning_file = "~/Documents/edb/valg21/utjevning.csv"
 sperregrense = 0.04
-total_mandates = 169  # Total mandates in Stortinget.
-# df.info()
-# df.head()
+# total_mandates = 169  # Total mandates in Stortinget. # Now read from file.
 
-# Produce list of mandates and districts.
-# mandater = df.groupby("Fylkenavn")["Antall mandater"].sum()
-# mandater.to_csv("~/Documents/edb/valg21/mandater.csv")
-
+# Read results from file
 df = pd.read_csv(result_file, sep=";")
-
 # Cast to string to be able to test against
 df["Fylkenavn"] = df["Fylkenavn"].astype("string")
 df["Partikode"] = df["Partikode"].astype("string")
@@ -32,22 +25,27 @@ df["Partinavn"] = df["Partinavn"].astype("string")
 # df.info()
 # df.head()
 
+# Read number of total mandates per fylke from file
 mandates_per_district = pd.read_csv(mandates_file)
-utjevning_per_district = pd.read_csv(utjevning_file)
-# print(mandates_per_district)
 max_mandates = mandates_per_district["Antall mandater"].max()
+total_mandates = mandates_per_district["Antall mandater"].sum()
 mandates_per_district.set_index("Fylkenavn", inplace=True)
+
+# Read number of utjevning mandates per fylke from file
+utjevning_per_district = pd.read_csv(utjevning_file)
 utjevning_per_district.set_index("Fylkenavn", inplace=True)
-# print(max_mandates)
+
 st_Lagues_mod = 1.4
 kvotient_list = [st_Lagues_mod]
+for n in range(3, 2 * max_mandates, 2):
+    # Will allow one single party to win all mandates,
+    # even from the largest fylke
+    kvotient_list.append(n)
+kvotient_string_list = [f"{n}" for n in kvotient_list]
+
 utjevning_kvotient_list = [st_Lagues_mod]
 # Need to make this list longer than for max mandates from a single fylke
 # in order to reuse it for the national evening out mandates.
-for n in range(3, 2 * max_mandates, 2):
-    kvotient_list.append(n)
-kvotient_string_list = [f"{n}" for n in kvotient_list]
-# print(kvotient_list)
 for n in range(3, 2 * total_mandates, 2):
     utjevning_kvotient_list.append(n)
 utjevning_kvotient_string_list = [f"{n}" for n in utjevning_kvotient_list]
@@ -69,28 +67,26 @@ df["Direct"] = 0  # Direct mandates
 df["Evening"] = 0  # Evening out mandates
 # print(kvotient_string_list)
 
-
 for fylke in df["Fylkenavn"].unique():
-    # mandates = mandates_per_district[
-    #     mandates_per_district["Fylkenavn"] == fylke
-    # ].iat[0, 1]
     mandates = mandates_per_district.at[fylke, "Antall mandater"]
     utjevning = utjevning_per_district.at[fylke, "Antall mandater"]
     # print(fylke, mandates)
     fylke_result = df[(df["Fylkenavn"] == fylke)]
 
-    # Saving one mandate for the evening out mandate
+    # Saving appropriate mandates for the utjevning mandates
     for n in range(mandates - utjevning):
         # Find max kvotient
         max_column = fylke_result[kvotient_string_list].max().idxmax()
         max_row = fylke_result[[max_column]].idxmax().max()
-        # print(f"{max_column=}")
-        # print(f"{max_row}")
-        # print(fylke_result.at[max_row, max_column])
+        # print(f"{max_column=}, {max_row}",
+        #       + fylke_result.at[max_row, max_column])
 
         # Give the party with the largest kvotient a mandate
         df.at[max_row, "Direct"] = df.at[max_row, "Direct"] + 1
         # Remove that kvotient from the list
+        # Multiplying with -1 makes sure it is not the larges the next
+        # time round, while still keeping the value for controlling
+        # the result later if needed.
         fylke_result.at[max_row, max_column] *= -1
     # fylke_result.info()
 
@@ -105,9 +101,9 @@ for fylke in df["Fylkenavn"].unique():
 #         # print("Jadda", row["Antall mandater"], row["Direct"], end="  ")
 #         pass
 # print(f"{bom=}")
-df.to_csv("BeregnetStortingUtenUtjevning.csv")
+df.to_csv("BeregnetStortingDirekteMandater.csv")
 
-# Make and print nice list of direct mandates.
+# Make and print nice list of national total direct mandates.
 direct_df = df.groupby("Partinavn")["Direct"].sum()
 direct_df = direct_df.to_frame()  # "Direct").reset_index()
 # direct_df = df.groupby(["Partinavn"], as_index=False)["Direct"].sum()  #####
@@ -118,6 +114,7 @@ direct_df = direct_df.drop(direct_df[direct_df.Direct < 1].index)
 direct_df.to_csv("Direte_mandater.csv")
 print(direct_df)
 
+print("\nUtjevning på gang...")
 # Evening out mandates are only for parties above "sperregrense" nationaly
 # Calculating national results for all parties
 ndf = df.groupby("Partinavn")["Antall stemmer totalt"].sum()
@@ -135,12 +132,8 @@ ndf.at["Blanke", "Antall stemmer totalt"] = 0
 ndf["Oppslutning"] = ndf["Antall stemmer totalt"] \
     / ndf["Antall stemmer totalt"].sum()
 # print(ndf)
-# print(dir_series, type(dir_series))
-# ndf = pd.concat([ndf, dir_series.to_frame()])  # Nope, not quite
-# ndf.merge(dir_series, left_index=True, right_index=True)  # Nope
 ndf["Direct"] = df.groupby("Partinavn")["Direct"].sum()  # There we go
 
-# print(dir_series)
 # print(ndf.info())
 # print(ndf)
 
@@ -170,7 +163,7 @@ mandates_to_asif = total_mandates - small_party_mandates
 too_many_mandates = 1
 numb = 0
 while too_many_mandates > 0:
-    numb = numb + 1
+    numb += 1
     # Reset as-if calculation
     ndf["asif"] = 0
     # print(f"{mandates_to_asif=}")
@@ -189,10 +182,10 @@ while too_many_mandates > 0:
     ndf.to_csv(f"Beregning_Utjevning_{numb}.csv")
     # Check if some party got too many mandates
     too_many_mandates = ndf[ndf.Direct > ndf.asif]["Direct"].sum()
-    # print(ndf["asif"])
-    # print(f"{too_many_mandates=}")
+    print(ndf["asif"])
+    print(f"{too_many_mandates=}")
     # Kick out the parties with too many mandates
-    # print("Dropping ",  ndf[ndf.Direct > ndf.asif].index)
+    print("Dropping ", ndf[ndf.Direct > ndf.asif].index)
     ndf = ndf.drop(ndf[ndf.Direct > ndf.asif].index)
     # Adjust number of mandates to distribute
     mandates_to_asif = mandates_to_asif - too_many_mandates
