@@ -6,6 +6,7 @@ Created on Mon Nov 15 21:30:26 2021
 """
 
 import pandas as pd
+import numpy as np
 
 # Result, laws and regulations source:
 # https://valgresultat.no/eksport-av-valgresultater?type=st&year=2021
@@ -211,28 +212,44 @@ print(ndf["Utjevning"])
 # Now, calculate which party gets a compensatory mandate in which district.
 
 # Calculate fylkesfaktor
-df["Fylkesfaktor"] = 0
-# for fylke in df["Fylkenavn"].unique():
-#     df.at[fylke, "Fylkesfaktor"] = df.groupby("Fylkenavn")["Antall stemmer totalt"].sum()
+
+# Getting a list of the total number of votes in each fylke
 plopp = df.groupby("Fylkenavn")["Antall stemmer totalt"].sum()
-print("\n\nPlopp\n", plopp, type(plopp))
 plopp = plopp.to_frame()
-# print(plopp.info())
+print(plopp.info())
+print("\n\nPlopp\n", plopp, type(plopp))
 plopp.to_csv("Stemmer_per_fylke.csv")
 
-# print("\n\nPlopp\n", plopp)
-# print(mandates_per_district)
-# for fylke in plopp.index().unique():
-    # print(fylke)
-#     df.at[fylke, "Fylkesfaktor"] = plopp.at[fylke, "Antall stemmer totalt"] / mandates_per_district.at[fylke, "Antall mandater"]
-# #     print(plopp["Antall stemmer totalt"])
-# for fylke in df["Fylkenavn"].unique():
-#     # print(fylke)
-#     # print(plopp.at[fylke, "Antall stemmer totalt"])
-#     # print(mandates_per_district.at[fylke, "Antall mandater"])
-#     df.at[fylke, "Fylkestemmer"] = plopp.at[fylke, "Antall stemmer totalt"]
-#     # df.at[fylke, "Fylkesfaktor"] = df.at[fylke, "Fylkestemmer"] /\
-#     #     df.at[]
-df
+df["Fylkesstemmer"] = 0
+# Getting the total number of votes in each fylke into the df:
+for idx, row in df.iterrows():
+    for ploppidx, plopprow in plopp.iterrows():
+        if row["Fylkenavn"] == ploppidx:
+            # print(row["Fylkenavn"], ploppidx,)
+            df.loc[idx, "Fylkesstemmer"] = plopp.loc[ploppidx, "Antall stemmer totalt"]
+
+# Now, reuse that most elegant methode to get the number of direct mandates in.
+df["Direktemandater fra fylket"] = 0
+dirdf = df.groupby("Fylkenavn")["Direct"].sum()
+dirdf = dirdf.to_frame()
+print(dirdf.info())
+print("\n\nDirdf\n", dirdf, type(dirdf))
+dirdf.to_csv("Direct_per_fylke.csv")
+
+df["Direktemandater fra fylket"] = 0
+# Getting the total number of votes in each fylke into the df:
+for idx, row in df.iterrows():
+    for dirdfidx, dirdfrow in dirdf.iterrows():
+        if row["Fylkenavn"] == dirdfidx:
+            # print(row["Fylkenavn"], ploppidx,)
+            df.loc[idx, "Direktemandater fra fylket"] = dirdf.loc[dirdfidx, "Direct"]
+
+df["Fylkesfaktor"] = df["Fylkesstemmer"] / df["Direktemandater fra fylket"]
+
+# Now, revise the number of votes:
+df["Revidert stemmetall"] = np.where(df["Direct"] == 0, \
+                          df["Antall stemmer totalt"], \
+                          df["Antall stemmer totalt"] / (2 * df.Direct + 1))
+df["Utjevningstall"] = df["Revidert stemmetall"] / df["Fylkesfaktor"]
+# df
 df.to_csv("df.csv")
-# df.at[fylke, "Stemmer fylke"] = df.groupby("Fylkenavn")["Antall stemmer totalt"].sum()
