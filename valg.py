@@ -98,7 +98,7 @@ for fylke in df["Fylkenavn"].unique():
         # Give the party with the largest kvotient a mandate
         df.at[max_row, "Direct"] = df.at[max_row, "Direct"] + 1
         # Remove that kvotient from the list
-        # Multiplying with -1 makes sure it is not the larges the next
+        # Multiplying with -1 makes sure it is not the largest the next
         # time round, while still keeping the value for controlling
         # the result later if needed.
         fylke_result.at[max_row, max_column] *= -1
@@ -204,10 +204,11 @@ while too_many_mandates > 0:
     # Adjust number of mandates to distribute
     mandates_to_asif = mandates_to_asif - too_many_mandates
 ndf["Utjevning"] = ndf["asif"] - ndf["Direct"]
-print("\nParties are underrepr, should have representatives:")
-print(ndf["asif"])
+# print("\nParties are underrepr, should have representatives:")
+# print(ndf["asif"])
 print("\nParties will get utgjevning:")
 print(ndf["Utjevning"])
+ndf.to_csv(f"Beregning_Utjevning.csv")
 
 # Now, calculate which party gets a compensatory mandate in which district.
 
@@ -216,8 +217,8 @@ print(ndf["Utjevning"])
 # Getting a list of the total number of votes in each fylke
 plopp = df.groupby("Fylkenavn")["Antall stemmer totalt"].sum()
 plopp = plopp.to_frame()
-print(plopp.info())
-print("\n\nPlopp\n", plopp, type(plopp))
+# print(plopp.info())
+# print("\n\nPlopp\n", plopp, type(plopp))
 plopp.to_csv("Stemmer_per_fylke.csv")
 
 df["Fylkesstemmer"] = 0
@@ -232,8 +233,8 @@ for idx, row in df.iterrows():
 df["Direktemandater fra fylket"] = 0
 dirdf = df.groupby("Fylkenavn")["Direct"].sum()
 dirdf = dirdf.to_frame()
-print(dirdf.info())
-print("\n\nDirdf\n", dirdf, type(dirdf))
+# print(dirdf.info())
+# print("\n\nDirdf\n", dirdf, type(dirdf))
 dirdf.to_csv("Direct_per_fylke.csv")
 
 df["Direktemandater fra fylket"] = 0
@@ -247,9 +248,73 @@ for idx, row in df.iterrows():
 df["Fylkesfaktor"] = df["Fylkesstemmer"] / df["Direktemandater fra fylket"]
 
 # Now, revise the number of votes:
-df["Revidert stemmetall"] = np.where(df["Direct"] == 0, \
-                          df["Antall stemmer totalt"], \
-                          df["Antall stemmer totalt"] / (2 * df.Direct + 1))
+df["Revidert stemmetall"] = df["Antall stemmer totalt"] / (2 * df.Direct + 1)
 df["Utjevningstall"] = df["Revidert stemmetall"] / df["Fylkesfaktor"]
+
+# print(ndf.index)
+# print(ndf.index.unique())
+# print(list(ndf.index.unique()))
+# Remove the Utjevningstall for the parties who shall not get any evening outs.
+# df["Utjevningstall"] = np.where(df["Partinavn"] in list(ndf.index.unique()),\
+#                                 # Party shall have utjevning
+#                                 df["Utjevningstall"],\
+#                                 # Party shall not have utjevning
+#                                 0)
+# Nope, this doesn't work.
+
+# Removing the parties which shall not get utjevning
+utjevninglist = list(ndf.index.unique())
+for idx, row, in df.iterrows():
+    if row["Partinavn"] not in utjevninglist:
+        df.loc[idx, "Utjevningstall"] = 0
+
+utjevning_left = utjevning_per_district["Antall mandater"].sum()
+while(utjevning_left > 0):
+
+    # This looks ok, just need to loop it properly to get the right result.
+    max_row = df["Utjevningstall"].idxmax()
+    df.loc[max_row, "Evening"] = df.loc[max_row, "Evening"] + 1
+    fylke = df.loc[max_row, "Fylkenavn"]
+    parti = df.loc[max_row, "Partinavn"]
+    print(f"{parti[:7]:7s} får utjevningsamndat i {fylke}")
+    # print(max_row, df.loc[max_row, "Partinavn"], df.loc[max_row, "Fylkenavn"])
+    # print(utjevning_per_district)
+    # print(ndf["Utjevning"])
+
+    # subtracting mandate from remaining for both the party and the fylke
+    utjevning_per_district.loc[fylke, "Antall mandater"] -= 1
+    ndf.loc[parti, "Utjevning"] -= 1
+
+    # Removing the Utjevningstall for the parties and districts which have
+    # had as many evening out mandates as they should.
+    if utjevning_per_district.loc[fylke, "Antall mandater"] <= 0:
+        # This district has distributed all mandates
+        for idx, row, in df.iterrows():
+            if row["Fylkenavn"] == fylke:
+                df.loc[idx, "Utjevningstall"] -= 1
+
+    if ndf.loc[parti, "Utjevning"] <= 0:
+        # This party has had enough mandates
+        for idx, row, in df.iterrows():
+            if row["Partinavn"] == parti:
+                df.loc[idx, "Utjevningstall"] -= 1
+
+    utjevning_left1 = utjevning_per_district["Antall mandater"].sum()
+    utjevning_left2 = ndf["Utjevning"].sum()
+
+    if utjevning_left1 == utjevning_left2:
+        utjevning_left = utjevning_left1
+        # print(utjevning_left)
+    else:
+        print("ÆSJ, har har utjevningsutregniingen gått i frø.")
+        print(utjevning_left1, utjevning_left2)
+        utjevning_left = -17
+
+
 # df
 df.to_csv("df.csv")
+
+# checking where I stored how many evening out mandates
+# each district and party gets
+# print(utjevning_per_district)
+# print(ndf["Utjevning"])
