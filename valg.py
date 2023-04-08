@@ -32,21 +32,16 @@ df = pd.read_csv(result_file, sep=";")
 df["Fylkenavn"] = df["Fylkenavn"].astype("string")
 df["Partikode"] = df["Partikode"].astype("string")
 df["Partinavn"] = df["Partinavn"].astype("string")
+# df.info()
+# df.head()
 
 summary = {}
 parties = {}
 for parti in df["Partikode"].unique():
-        # parties.append(str(parti) + " dir": 0, str(parti) + " even":0)
-        parties[parti + " dir"] = 0
-        parties[parti + " even"] = 0
+    parties[parti] = 0
 for fylke in df["Fylkenavn"].unique():
     summary[fylke] = parties.copy()
-# print(summary, "\n\n\n")
-# summary["Akershus"]["A dir"] = 2
-# print(summary)
 
-# df.info()
-# df.head()
 with open(log_file, "w") as f:
     # Open in write mode only the first time, to avoid overwriting
     f.write("Valgresultater etter Stortingsvalget 2021.\n\n")
@@ -70,7 +65,6 @@ with open(log_file, "a") as f:
 
 # Calculate number of direct mandates per fylke
 direkte_per_district = mandates_per_district.subtract(utjevning_per_district)
-# print("Direkte mandater per fylke\n", direkte_per_district)
 
 st_Lagues_mod = 1.4
 
@@ -92,23 +86,17 @@ utjevning_kvotient_string_list = [f"{n}" for n in utjevning_kvotient_list]
 def calculate_kvotients(df, kvotient_list):
     # Calculating kvotients for all districts and parties
     for n in kvotient_list:
-        # print(n)
         df[f"{n}"] = df["Antall stemmer totalt"] / n
-    # print(df.info())
     return df
 
 
-# print("Total votes, entire nation:", df["Antall stemmer totalt"].sum())
 df = calculate_kvotients(df, kvotient_list)
 # Adding columns to store results from calculations
 df["Direct"] = 0  # Direct mandates
 df["Evening"] = 0  # Evening out mandates
-# print(kvotient_string_list)
 
 print("Regner ut direktemandater")
 for fylke in df["Fylkenavn"].unique():
-    # mandates = mandates_per_district.at[fylke, "Antall mandater"]
-    # utjevning = utjevning_per_district.at[fylke, "Antall mandater"]
     direct = direkte_per_district.at[fylke, "Antall mandater"]
     # print(fylke, mandates)
     fylke_result = df[(df["Fylkenavn"] == fylke)]
@@ -126,8 +114,8 @@ for fylke in df["Fylkenavn"].unique():
         party = df.at[max_row, "Partikode"]
         with open(log_file, "a") as f:
             f.write(f"{party:4s} direkte {fylke}\n")
-        #Update summary table
-        summary[fylke][party+" dir"] += 1
+        # Update summary table
+        summary[fylke][party] += 1
         # Remove that kvotient from the list
         # Multiplying with -1 makes sure it is not the largest the next
         # time round, while still keeping the value for controlling
@@ -150,29 +138,22 @@ df.to_csv("BeregnetStortingDirekteMandater.csv")
 
 # Make and print nice list of national total direct mandates.
 direct_df = df.groupby("Partikode")["Direct"].sum()
-direct_df = direct_df.to_frame()  # "Direct").reset_index()
-# direct_df = df.groupby(["Partikode"], as_index=False)["Direct"].sum()  #####
-# direct_df.set_index("Partikode", inplace=True)  #####
+direct_df = direct_df.to_frame()
 # Skip the parties without mandates
 direct_df = direct_df.drop(direct_df[direct_df.Direct < 1].index)
-# direct_df.set_index('Partikode', inplace=True)
 direct_df.to_csv("Direte_mandater.csv")
 print(direct_df)
 
 print("\nBeregner antall utjevningsmandater til hvert parti")
-# Evening out mandates are only for parties above "sperregrense" nationaly
+# Evening out mandates are only for parties above "sperregrense" nationally
 # Calculating national results for all parties
 ndf = df.groupby("Partikode")["Antall stemmer totalt"].sum()
-# print(ndf, type(ndf))
 # Converting to dataframe (from Series)
 ndf = ndf.to_frame()
-# print(ndf)  # , type(ndf))
 ndf.to_csv("Grunnlag_utjevning.csv")
-# # print(ndf, type(ndf))
-# # Blanke stemmer er ikke en del av grunnlaget for oppslutning.
-# # Removing blank votes from the total
+# Removing blank votes from the total, as they don't count for "oppslutning"
 ndf.at["Blanke", "Antall stemmer totalt"] = 0
-# # print(ndf)
+# print(ndf)
 # print("Total votes to calculate oppslutning: "
 # + ndf["Antall stemmer totalt"].sum())
 ndf["Oppslutning"] = ndf["Antall stemmer totalt"] \
@@ -184,7 +165,8 @@ ndf["Direct"] = df.groupby("Partikode")["Direct"].sum()  # There we go
 # print(ndf)
 
 # Need to count the number of representatives the small parties
-# have won. These are to be subtracted from those to be divided
+# have won. Small parties are those with oppslutning below the
+# sperregrense. These are to be subtracted from those to be divided
 # in the national calculation to determine who gets an
 # evening out mandate.
 small_party_mandates = ndf[ndf.Oppslutning < sperregrense]["Direct"].sum()
@@ -195,8 +177,8 @@ ndf = ndf.drop(ndf[ndf.Oppslutning < sperregrense].index)
 # print(ndf)
 # Calculating kvotients
 ndf = calculate_kvotients(ndf, utjevning_kvotient_list)
-# print(ndf)
 
+#TODO: Keep linting from here!
 # Do the as-if calculation on how many mandates each party should
 # have had according to national votes
 
@@ -314,7 +296,7 @@ while(utjevning_left > 0):
     parti = df.loc[max_row, "Partikode"]
     with open(log_file, "a") as f:
         f.write(f"{parti:4s} utjevning {fylke}\n")
-    summary[fylke][parti+" even"] += 1
+    summary[fylke][parti] += 1
     # print(f"{parti[:7]:7s} utjevning {fylke}")
     # print(max_row, df.loc[max_row,"Partikode"], df.loc[max_row, "Fylkenavn"])
     # print(utjevning_per_district)
@@ -349,7 +331,18 @@ while(utjevning_left > 0):
         print(utjevning_left1, utjevning_left2)
         utjevning_left = -17
 
+sum_table = pd.DataFrame(summary)
+sum_table['Total']= sum_table.sum(axis=1)
+# sum_table.to_csv("sum.csv")
+sum_trans = sum_table.transpose()
+# Removing the parties with no mandates from summary list.
+sum_trans = sum_trans.loc[:, (sum_trans.sum(axis=0) > 1)]
+sum_trans.to_csv("sum_trans.csv")
+
 # Save everything
 df.to_csv("df.csv")
 with open(summary_file, 'w') as file:
      file.write(json.dumps(summary))
+# with open(log_file, "a") as f:
+#     for
+#     f.write()
