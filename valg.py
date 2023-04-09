@@ -61,7 +61,7 @@ with open(log_file, "a", encoding="utf-16") as f:
             + str(mandates_per_district) + "\n\n")
     f.write("Utjevningsmandater per valgdistrikt (fylke):\n"
             + str(utjevning_per_district) + "\n\n")
-    f.write(f"Sperregrense: {sperregrense}.\n\n")
+    f.write(f"Sperregrense: {sperregrense}\n\n")
 
 # Calculate number of direct mandates per fylke
 direkte_per_district = mandates_per_district.subtract(utjevning_per_district)
@@ -160,9 +160,14 @@ ndf["Oppslutning"] = ndf["Antall stemmer totalt"] \
     / ndf["Antall stemmer totalt"].sum()
 # print(ndf)
 ndf["Direct"] = df.groupby("Partikode")["Direct"].sum()  # There we go
-
+# Removing blank votes, to avoid them getting an evening out mandate
+ndf = ndf.drop("BLANKE")
 # print(ndf.info())
-print(100*ndf[ndf.Oppslutning > 0.01]['Oppslutning'])
+minst = 0.0007
+with open(log_file, "a", encoding="utf-16") as f:
+    f.write(f"\nPartier med mer enn {100*minst:.2f} % oppslutning:\n")
+    f.write(str(100*ndf[ndf.Oppslutning > minst]['Oppslutning']))
+    f.write("\n")
 
 # Need to count the number of representatives the small parties
 # have won. Small parties are those with oppslutning below the
@@ -352,6 +357,31 @@ for line in summary:
 with open(log_file, "a", encoding="utf-16") as f:
     f.write(summary_string)
 
+# Summing up mandates for groups of parties.
+rg = sum_trans.loc["Totalt"]["RØDT"] \
+    + sum_trans.loc["Totalt"]["SV"] \
+    + sum_trans.loc["Totalt"]["A"] \
+    + sum_trans.loc["Totalt"]["MDG"]
+
+regj = sum_trans.loc["Totalt"]["A"] \
+    + sum_trans.loc["Totalt"]["SP"]
+
+r_sv = regj + sum_trans.loc["Totalt"]["SV"]
+
+blueblu = sum_trans.loc["Totalt"]["H"] \
+    + sum_trans.loc["Totalt"]["FRP"]
+
+blue = blueblu + sum_trans.loc["Totalt"]["V"] \
+    + sum_trans.loc["Totalt"]["KRF"]
+
+blokk_string = f"\nRØDT + SV + A + MDG: {rg}\n"\
+    + f"A + SP: {regj}\n"\
+    + f"A + SP + SV: {r_sv}\n"\
+    + f"V + KRF + H + FRP: {blue}\n"\
+    + f"H + FRP: {blueblu}"
+with open(log_file, "a", encoding="utf-16") as f:
+    f.write(blokk_string)
+
 # Save everything
 df.to_csv(f"df_{runcode}.csv")
 ndf.to_csv(f"ndf_{runcode}.csv")
@@ -360,4 +390,5 @@ with open(summary_file, 'w', encoding="utf-16") as file:
                + f"Sperregrense: {sperregrense}\n"
                + f"Utjevningsmandater per fylke: {evening_per_fylke}\n"
                + f"Regelversjon: {runcode}\n\n"
-               + summary_string)
+               + summary_string
+               + blokk_string)
