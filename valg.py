@@ -17,13 +17,18 @@ import pandas as pd
 # https://snl.no/utjevningsmandat
 
 result_file = "~/Documents/edb/valg21/2021-11-10_partifordeling_1_st_2021.csv"
-mandates_file = "~/Documents/edb/valg21/mandater.csv"
-utjevning_file = "~/Documents/edb/valg21/utjevning.csv"
-sperregrense = 0.04
+mandates_file = "~/Documents/edb/valg21/settings/mandater.csv"
+utjevning_file = "~/Documents/edb/valg21/settings/utjevning1.csv"
+sperregrense = 0.01
 evening_per_fylke = 1
-runcode = "normal"
+st_Lagues_mod = 1.4
+runcode = "sg1_u1"
 log_file = f"C:/Users/jsg/Documents/edb/valg21/valg21_log_{runcode}.txt"
 summary_file = f"C:/Users/jsg/Documents/edb/valg21/summary_{runcode}.txt"
+comment = ""#"Gjeldende valgregler 2021."
+# "19 utjevningsmandater fordelt etter mandater i hvert fylke"
+
+#
 # total_mandates = 169  # Total mandates in Stortinget. # Now read from file.
 
 # Read results from file
@@ -62,11 +67,11 @@ with open(log_file, "a", encoding="utf-16") as f:
     f.write("Utjevningsmandater per valgdistrikt (fylke):\n"
             + str(utjevning_per_district) + "\n\n")
     f.write(f"Sperregrense: {sperregrense}\n\n")
+    f.write(f"St. Lagues modifisert: {st_Lagues_mod}\n\n")
+    f.write(comment + "\n\n")
 
 # Calculate number of direct mandates per fylke
 direkte_per_district = mandates_per_district.subtract(utjevning_per_district)
-
-st_Lagues_mod = 1.4
 
 kvotient_list = [st_Lagues_mod]
 for n in range(3, 2 * max_mandates, 2):
@@ -150,7 +155,7 @@ print("\nBeregner antall utjevningsmandater til hvert parti")
 ndf = df.groupby("Partikode")["Antall stemmer totalt"].sum()
 # Converting to dataframe (from Series)
 ndf = ndf.to_frame()
-ndf.to_csv(f"Grunnlag_utjevning_{runcode}.csv")
+ndf.to_csv(f"./details/Grunnlag_utjevning_{runcode}.csv")
 # Removing blank votes from the total, as they don't count for "oppslutning"
 ndf.at["Blanke", "Antall stemmer totalt"] = 0
 # print(ndf)
@@ -213,7 +218,7 @@ while too_many_mandates > 0:
         # Remove that kvotient from the list
         ndf.at[max_row, max_column] *= -1
     # print(ndf["Direct"], ndf["asif"])
-    ndf.to_csv(f"Beregning_Utjevning_{runcode}_{numb}.csv")
+    ndf.to_csv(f"./details/Beregning_Utjevning_{runcode}_{numb}.csv")
     # Check if some party got too many mandates
     too_many_mandates = int(ndf[ndf.Direct > ndf.asif]["Direct"].sum())
     # Kick out the parties with too many mandates
@@ -231,7 +236,7 @@ ndf["Utjevning"] = ndf["asif"] - ndf["Direct"]
 # print("\nParties will get utgjevning:")
 ndf["Utjevning"] = ndf["Utjevning"].astype(int)
 print(ndf["Utjevning"])
-ndf.to_csv(f"Beregning_Utjevning_{runcode}.csv")
+ndf.to_csv(f"./details/Beregning_Utjevning_{runcode}.csv")
 print("\nDeler ut utjevningsmandater til partier")
 
 # Now, calculate which party gets an evening out mandate in which district.
@@ -242,7 +247,7 @@ print("\nDeler ut utjevningsmandater til partier")
 plopp = df.groupby("Fylkenavn")["Antall stemmer totalt"].sum()
 plopp = plopp.to_frame()
 # print(plopp.info())
-plopp.to_csv(f"Stemmer_per_fylke_{runcode}.csv")
+plopp.to_csv(f"./details/Stemmer_per_fylke_{runcode}.csv")
 
 df["Fylkesstemmer"] = 0
 # Getting the total number of votes in each fylke into the df:
@@ -258,7 +263,7 @@ df["Direktemandater fra fylket"] = 0
 dirdf = df.groupby("Fylkenavn")["Direct"].sum()
 dirdf = dirdf.to_frame()
 # print(dirdf.info())
-dirdf.to_csv(f"Direct_per_fylke_{runcode}.csv")
+dirdf.to_csv(f"./details/Direct_per_fylke_{runcode}.csv")
 
 df["Direktemandater fra fylket"] = 0
 # Getting the total number of votes in each fylke into the df:
@@ -284,6 +289,8 @@ utjevning_left = utjevning_per_district["Antall mandater"].sum()
 while(utjevning_left > 0):
     max_row = df["Utjevningstall"].idxmax()
     df.loc[max_row, "Evening"] = df.loc[max_row, "Evening"] + 1
+    # Only one evening mandate per party from each fylke
+    df.loc[max_row, "Utjevningstall"] -= 1
     fylke = df.loc[max_row, "Fylkenavn"]
     parti = df.loc[max_row, "Partikode"]
     with open(log_file, "a", encoding="utf-16") as f:
@@ -303,13 +310,13 @@ while(utjevning_left > 0):
             if row["Fylkenavn"] == fylke:
                 # Have to subtract, not multiply by -1 because this
                 # multiplication will be repeated for the parties later.
-                df.loc[idx, "Utjevningstall"] -= 1
+                df.loc[idx, "Utjevningstall"] -= 2
 
     if ndf.loc[parti, "Utjevning"] <= 0:
         # This party has had enough mandates
         for idx, row, in df.iterrows():
             if row["Partikode"] == parti:
-                df.loc[idx, "Utjevningstall"] -= 10
+                df.loc[idx, "Utjevningstall"] -= 4
 
     utjevning_left1 = utjevning_per_district["Antall mandater"].sum()
     utjevning_left2 = ndf["Utjevning"].sum()
@@ -342,10 +349,10 @@ sum_trans = sum_trans[["NKP", "RØDT", "SV", "A", "RN", "MDG", "FI", "GENE",
 # Removing the parties with no mandates from summary list.
 sum_trans = sum_trans.loc[:, (sum_trans.sum(axis=0) > 1)]
 
-sum_trans.to_csv("summary.csv")
+sum_trans.to_csv("./details/summary.csv")
 summary_string = ""
 summary = ""
-with open("summary.csv", "r") as f:
+with open("./details/summary.csv", "r") as f:
     summary = f.readlines()
 for line in summary:
     parts = line.split(",")
@@ -383,12 +390,13 @@ with open(log_file, "a", encoding="utf-16") as f:
     f.write(blokk_string)
 
 # Save everything
-df.to_csv(f"df_{runcode}.csv")
-ndf.to_csv(f"ndf_{runcode}.csv")
+df.to_csv(f"./details/df_{runcode}.csv")
+ndf.to_csv(f"./details/ndf_{runcode}.csv")
 with open(summary_file, 'w', encoding="utf-16") as file:
     file.write("Beregnet sammensetning av Stortinget.\n"
                + f"Sperregrense: {sperregrense}\n"
                + f"Utjevningsmandater per fylke: {evening_per_fylke}\n"
-               + f"Regelversjon: {runcode}\n\n"
+               + f"Regelversjon: {runcode}\n"
+               + comment + "\n\n"
                + summary_string
                + blokk_string)
