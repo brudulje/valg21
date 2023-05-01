@@ -19,13 +19,14 @@ import pandas as pd
 result_file = "~/Documents/edb/valg21/2021-11-10_partifordeling_1_st_2021.csv"
 mandates_file = "~/Documents/edb/valg21/settings/mandater.csv"
 utjevning_file = "~/Documents/edb/valg21/settings/utjevning1.csv"
-sperregrense = 0.01
-evening_per_fylke = 1
+sperregrense = 0.04
+evening_per_fylke = 1  # Should be calculated from utjevning_file
 st_Lagues_mod = 1.4
-runcode = "sg1_u1"
+runcode = "sg4_u1"
 log_file = f"C:/Users/jsg/Documents/edb/valg21/valg21_log_{runcode}.txt"
 summary_file = f"C:/Users/jsg/Documents/edb/valg21/summary_{runcode}.txt"
-comment = ""#"Gjeldende valgregler 2021."
+comment = "Gjeldende valgregler 2021."
+# "Sperregrense 4%, 1 utjevningsmandat per fylke, men fordelt etter antall mandater i hvert fylke, ellers "
 # "19 utjevningsmandater fordelt etter mandater i hvert fylke"
 
 #
@@ -59,6 +60,9 @@ mandates_per_district.set_index("Fylkenavn", inplace=True)
 # Read number of utjevning mandates per fylke from file
 utjevning_per_district = pd.read_csv(utjevning_file)
 utjevning_per_district.set_index("Fylkenavn", inplace=True)
+overview_mandates = mandates_per_district.copy()
+# overview_mandates.rename(columns={"Antall mandater": "Direkte"}, inplace=True)
+overview_mandates["Utjevning"] = utjevning_per_district["Antall mandater"]
 
 # Write currently used settings/rules in log
 with open(log_file, "a", encoding="utf-16") as f:
@@ -168,7 +172,7 @@ ndf["Direct"] = df.groupby("Partikode")["Direct"].sum()  # There we go
 # Removing blank votes, to avoid them getting an evening out mandate
 ndf = ndf.drop("BLANKE")
 # print(ndf.info())
-minst = 0.0007
+minst = 0.001
 with open(log_file, "a", encoding="utf-16") as f:
     f.write(f"\nPartier med mer enn {100*minst:.2f} % oppslutning:\n")
     f.write(str(100*ndf[ndf.Oppslutning > minst]['Oppslutning']))
@@ -233,7 +237,7 @@ with open(log_file, "a", encoding="utf-16") as f:
 ndf["Utjevning"] = ndf["asif"] - ndf["Direct"]
 # print("\nParties are underrepr, should have representatives:")
 # print(ndf["asif"])
-# print("\nParties will get utgjevning:")
+# print("\nParties will get utjevning:")
 ndf["Utjevning"] = ndf["Utjevning"].astype(int)
 print(ndf["Utjevning"])
 ndf.to_csv(f"./details/Beregning_Utjevning_{runcode}.csv")
@@ -349,6 +353,9 @@ sum_trans = sum_trans[["NKP", "RØDT", "SV", "A", "RN", "MDG", "FI", "GENE",
 # Removing the parties with no mandates from summary list.
 sum_trans = sum_trans.loc[:, (sum_trans.sum(axis=0) > 1)]
 
+# mandate_string = ""
+
+mandate_string = str(overview_mandates)
 sum_trans.to_csv("./details/summary.csv")
 summary_string = ""
 summary = ""
@@ -398,5 +405,7 @@ with open(summary_file, 'w', encoding="utf-16") as file:
                + f"Utjevningsmandater per fylke: {evening_per_fylke}\n"
                + f"Regelversjon: {runcode}\n"
                + comment + "\n\n"
+               + mandate_string + "\n\n"
+               + "Representanter på Stortinget:\n"
                + summary_string
                + blokk_string)
