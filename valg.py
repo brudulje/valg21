@@ -6,6 +6,7 @@ Created on Mon Nov 15 21:30:26 2021
 """
 
 import pandas as pd
+# import numpy as np
 
 # Result, laws and regulations source:
 # https://valgresultat.no/eksport-av-valgresultater?type=st&year=2021
@@ -20,13 +21,23 @@ result_file = "~/Documents/edb/valg21/2021-11-10_partifordeling_1_st_2021.csv"
 mandates_file = "~/Documents/edb/valg21/settings/mandater.csv"
 utjevning_file = "~/Documents/edb/valg21/settings/utjevning1.csv"
 sperregrense = 0.04
+msg = True  # Myk sperregrense
+myk_min = 0.02
+myk_max = 0.04
+if msg:
+    sperregrense = myk_min
 evening_per_fylke = 1  # Should be calculated from utjevning_file
 st_Lagues_mod = 1.4
-runcode = "sg4_u1"
+if msg:
+    runcode = f"msg{str(myk_min)[-1:]}{str(myk_max)[-1:]}_u{evening_per_fylke}"
+else:
+    runcode = "sg{str(sperregrense)[-1:]_u{evening_per_fylke}}"
 log_file = f"C:/Users/jsg/Documents/edb/valg21/valg21_log_{runcode}.txt"
 summary_file = f"C:/Users/jsg/Documents/edb/valg21/summary_{runcode}.txt"
-comment = "Gjeldende valgregler 2021."
-# "Sperregrense 4%, 1 utjevningsmandat per fylke, men fordelt etter antall mandater i hvert fylke, ellers "
+comment = f"Myk sperregrense lineært fra {myk_min} til {myk_max}, "\
+    + "str(evening_per_fylke) utjevningsmandat per fylke."
+# "Sperregrense 4%, 1 utjevningsmandat per fylke, men fordelt
+# etter antall mandater i hvert fylke, ellers "
 # "19 utjevningsmandater fordelt etter mandater i hvert fylke"
 
 #
@@ -70,7 +81,10 @@ with open(log_file, "a", encoding="utf-16") as f:
             + str(mandates_per_district) + "\n\n")
     f.write("Utjevningsmandater per valgdistrikt (fylke):\n"
             + str(utjevning_per_district) + "\n\n")
-    f.write(f"Sperregrense: {sperregrense}\n\n")
+    if msg:
+        f.write(f"Myk sperregrense fra {myk_min} til {myk_max}\n\n")
+    else:
+        f.write(f"Sperregrense: {sperregrense}\n\n")
     f.write(f"St. Lagues modifisert: {st_Lagues_mod}\n\n")
     f.write(comment + "\n\n")
 
@@ -176,7 +190,11 @@ minst = 0.001
 with open(log_file, "a", encoding="utf-16") as f:
     f.write(f"\nPartier med mer enn {100*minst:.2f} % oppslutning:\n")
     f.write(str(100*ndf[ndf.Oppslutning > minst]['Oppslutning']))
-    f.write("\n")
+    f.write(f"\n\nOppslutning for partier over sperregrensen på {sperregrense}:\n")
+    f.write(str(100*ndf[ndf.Oppslutning > sperregrense]['Oppslutning']))
+    f.write("\n\nStemmer for disse partiene:\n")
+    f.write(str(ndf[ndf.Oppslutning > sperregrense]["Antall stemmer totalt"]))
+
 
 # Need to count the number of representatives the small parties
 # have won. Small parties are those with oppslutning below the
@@ -189,6 +207,21 @@ small_party_mandates = ndf[ndf.Oppslutning < sperregrense]["Direct"].sum()
 # Kicking out the parties below the sperregrense threshold
 ndf = ndf.drop(ndf[ndf.Oppslutning < sperregrense].index)
 # print(ndf)
+
+if msg:
+    # Adjust for soft sperregrense
+    # df.loc[df['A'] > cond, 'A'] = 8
+    ndf.loc[ndf["Oppslutning"] < myk_max, "Antall stemmer totalt"] = \
+        ndf["Antall stemmer totalt"] * \
+        ((ndf["Oppslutning"] - myk_min) / (myk_max - myk_min))
+    with open(log_file, "a", encoding="utf-16") as f:
+        f.write("\n\nEtter modifikasjon for å ta hensyn til myk sperregrense:\n")
+        # f.write(f"\nPartier med mer enn {100*minst:.2f} % oppslutning:\n")
+        # f.write(str(100*ndf[ndf.Oppslutning > minst]['Oppslutning']))
+        f.write("\n\nStemmer for disse partiene:\n")
+        f.write(str(ndf[ndf.Oppslutning > minst]["Antall stemmer totalt"]))
+
+
 # Calculating kvotients
 ndf = calculate_kvotients(ndf, utjevning_kvotient_list)
 
@@ -240,6 +273,9 @@ ndf["Utjevning"] = ndf["asif"] - ndf["Direct"]
 # print("\nParties will get utjevning:")
 ndf["Utjevning"] = ndf["Utjevning"].astype(int)
 print(ndf["Utjevning"])
+with open(log_file, "a", encoding="utf-16") as f:
+    f.write(str(ndf["Utjevning"])+ "\n\n")
+
 ndf.to_csv(f"./details/Beregning_Utjevning_{runcode}.csv")
 print("\nDeler ut utjevningsmandater til partier")
 
@@ -400,12 +436,14 @@ with open(log_file, "a", encoding="utf-16") as f:
 df.to_csv(f"./details/df_{runcode}.csv")
 ndf.to_csv(f"./details/ndf_{runcode}.csv")
 with open(summary_file, 'w', encoding="utf-16") as file:
-    file.write("Beregnet sammensetning av Stortinget.\n"
-               + f"Sperregrense: {sperregrense}\n"
-               + f"Utjevningsmandater per fylke: {evening_per_fylke}\n"
+    file.write("Beregnet sammensetning av Stortinget.\n")
+    if msg:
+        file.write(f"Myk sperregrense fra {myk_min} til {myk_max} ")
+    else:
+        file.write(f"Sperregrense: {sperregrense} ")
+    file.write(f"Utjevningsmandater per fylke: {evening_per_fylke} "
                + f"Regelversjon: {runcode}\n"
                + comment + "\n\n"
                + mandate_string + "\n\n"
-               + "Representanter på Stortinget:\n"
                + summary_string
                + blokk_string)
