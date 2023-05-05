@@ -35,7 +35,7 @@ else:
 log_file = f"C:/Users/jsg/Documents/edb/valg21/valg21_log_{runcode}.txt"
 summary_file = f"C:/Users/jsg/Documents/edb/valg21/summary_{runcode}.txt"
 comment = f"Myk sperregrense lineært fra {myk_min} til {myk_max}, "\
-    + "str(evening_per_fylke) utjevningsmandat per fylke."
+    + f"{evening_per_fylke} utjevningsmandat per fylke."
 # "Sperregrense 4%, 1 utjevningsmandat per fylke, men fordelt
 # etter antall mandater i hvert fylke, ellers "
 # "19 utjevningsmandater fordelt etter mandater i hvert fylke"
@@ -72,7 +72,6 @@ mandates_per_district.set_index("Fylkenavn", inplace=True)
 utjevning_per_district = pd.read_csv(utjevning_file)
 utjevning_per_district.set_index("Fylkenavn", inplace=True)
 overview_mandates = mandates_per_district.copy()
-# overview_mandates.rename(columns={"Antall mandater": "Direkte"}, inplace=True)
 overview_mandates["Utjevning"] = utjevning_per_district["Antall mandater"]
 
 # Write currently used settings/rules in log
@@ -215,7 +214,7 @@ if msg:
         ndf["Antall stemmer totalt"] * \
         ((ndf["Oppslutning"] - myk_min) / (myk_max - myk_min))
     with open(log_file, "a", encoding="utf-16") as f:
-        f.write("\n\nEtter modifikasjon for å ta hensyn til myk sperregrense:\n")
+        f.write("\n\nEtter modifikasjon for å ta hensyn til myk sperregrense:")
         # f.write(f"\nPartier med mer enn {100*minst:.2f} % oppslutning:\n")
         # f.write(str(100*ndf[ndf.Oppslutning > minst]['Oppslutning']))
         f.write("\n\nStemmer for disse partiene:\n")
@@ -272,9 +271,12 @@ ndf["Utjevning"] = ndf["asif"] - ndf["Direct"]
 # print(ndf["asif"])
 # print("\nParties will get utjevning:")
 ndf["Utjevning"] = ndf["Utjevning"].astype(int)
+# drop the parties which gets zero evening out mandates
+ndf = ndf.drop(ndf[ndf.Utjevning < 1].index)
+
 print(ndf["Utjevning"])
 with open(log_file, "a", encoding="utf-16") as f:
-    f.write(str(ndf["Utjevning"])+ "\n\n")
+    f.write(str(ndf["Utjevning"]) + "\n\n")
 
 ndf.to_csv(f"./details/Beregning_Utjevning_{runcode}.csv")
 print("\nDeler ut utjevningsmandater til partier")
@@ -447,3 +449,4 @@ with open(summary_file, 'w', encoding="utf-16") as file:
                + mandate_string + "\n\n"
                + summary_string
                + blokk_string)
+print("Ferdig!")

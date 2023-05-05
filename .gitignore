@@ -1,3 +1,8 @@
 # Don't include these files in the git repository:
 
-*.csv
+*.txt
+*.ods
+details/
+settings/*
+!settings/mandater.csv
+!settings/utjevning1.csv
